@@ -1,0 +1,324 @@
+html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="description" content="Juego interactivo de descubrimiento de dinosaurios y criaturas prehistóricas para niños">
+<title>Aventura de Dinosaurios para Niños</title>
+<style>
+:root {
+  --primary-color: #4CAF50;
+  --hover-color: #45a049;
+  --text-color: #333;
+  --background-color: rgba(255, 255, 255, 0.9);
+  --error-color: #e74c3c;
+  --info-color: #3498db;
+}
+body {
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+  text-align: center;
+  background: url('fondo-jurasico.jpg') no-repeat center center fixed;
+  background-size: cover;
+  margin: 0;
+  padding: 10px;
+  color: #fff;
+  line-height: 1.6;
+  position: relative;
+}
+.dinosaur, .message, .warning {
+  display: none;
+  margin: 20px auto;
+  max-width: 600px;
+  background-color: var(--background-color);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+}
+img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 15px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+button {
+  font-size: 18px;
+  margin: 15px 0;
+  padding: 15px 20px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  width: 100%;
+  max-width: 300px;
+  transition: all 0.3s ease;
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+}
+button:hover:not(:disabled), button:active:not(:disabled) {
+  background-color: var(--hover-color);
+  transform: scale(1.05);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+h1 {
+  font-size: 36px;
+  color: #fff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  margin-bottom: 20px;
+}
+h2 {
+  color: var(--text-color);
+  font-size: 28px;
+}
+p {
+  color: var(--text-color);
+  text-align: justify;
+  font-size: 18px;
+}
+#voice-select, #rate-slider, #pitch-slider {
+  width: 100%;
+  max-width: 300px;
+  margin: 15px auto;
+  display: block;
+}
+@media (max-width: 600px) {
+  body {
+    padding: 5px;
+  }
+  h1 {
+    font-size: 28px;
+  }
+  h2 {
+    font-size: 24px;
+  }
+  p {
+    font-size: 16px;
+  }
+  button {
+    font-size: 16px;
+    padding: 12px;
+  }
+}
+#warning-triangle {
+  width: 0;
+  height: 0;
+  border-left: 25px solid transparent;
+  border-right: 25px solid transparent;
+  border-bottom: 50px solid var(--error-color);
+  display: inline-block;
+  position: relative;
+  margin-bottom: 20px;
+}
+#warning-triangle::after {
+  content: '!';
+  position: absolute;
+  top: 15px;
+  left: -11px;
+  color: white;
+  font-size: 30px;
+  font-weight: bold;
+}
+#game-buttons {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+.fun-fact {
+  background-color: var(--info-color);
+  color: white;
+  padding: 10px;
+  border-radius: 10px;
+  margin-top: 15px;
+  font-style: italic;
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>¡Aventura de Dinosaurios para Niños!</h1>
+</header>
+<main>
+  <section id="waking-up" class="message">
+    <p>¡Estás despertando en un mundo lleno de dinosaurios! ¿Estás listo para la aventura?</p>
+  </section>
+  <section id="warning" class="warning">
+    <div id="warning-triangle"></div>
+    <p>¡Cuidado! Un dinosaurio se acerca... ¿Qué será?</p>
+  </section>
+  <section id="dinosaur" class="dinosaur">
+    <img id="dino-image" src="" alt="Dinosaurio">
+    <h2 id="dino-name"></h2>
+    <p id="dino-info"></p>
+    <p id="dino-fun-fact" class="fun-fact"></p>
+  </section>
+  <section id="controls" style="display: none;">
+    <button id="speak-btn" aria-label="Leer">¡Escuchar sobre el dinosaurio!</button>
+    <button id="stop-btn" aria-label="Detener lectura">Detener lectura</button>
+    <select id="voice-select" aria-label="Seleccionar voz"></select>
+    <input type="range" id="rate-slider" min="0.5" max="2" value="1" step="0.1">
+    <label for="rate-slider">Velocidad: <span id="rate-value">1</span></label>
+    <input type="range" id="pitch-slider" min="0.5" max="2" value="1" step="0.1">
+    <label for="pitch-slider">Tono: <span id="pitch-value">1</span></label>
+  </section>
+  <section id="run-message" class="message">
+    <p>¡Oh no! ¡El dinosaurio te ha visto! ¡Corre!</p>
+  </section>
+  <section id="final-message" class="message">
+    <p>¡Uf! Estás a salvo. ¿Quieres conocer a otro dinosaurio?</p>
+    <button id="restart-btn">¡Sí, quiero otra aventura!</button>
+  </section>
+</main>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  let currentDino = null;
+  let synth = window.speechSynthesis;
+  let voices = [];
+
+  const dinosaurs = [
+  { name: 'Tiranosaurio Rex', info: 'El T-Rex era un gran depredador con dientes afilados y brazos cortos. ¡Podía correr muy rápido!', image: 'images/t-rex.jpg', funFact: '¿Sabías que el T-Rex tenía un sentido del olfato muy desarrollado?' },
+  { name: 'Velociraptor', info: 'El Velociraptor era pequeño pero muy inteligente. Cazaba en grupos y tenía garras afiladas.', image: 'images/velociraptor.jpg', funFact: 'Los Velociraptores probablemente tenían plumas, ¡como las aves!' },
+  { name: 'Triceratops', info: 'El Triceratops tenía tres cuernos en la cabeza y un gran collar óseo. Era herbívoro y muy fuerte.', image: 'images/triceratops.jpg', funFact: 'El nombre Triceratops significa "cara con tres cuernos".' },
+  { name: 'Espinosaurio', info: 'El Espinosaurio tenía una gran vela en su espalda y un hocico largo. Le gustaba comer peces.', image: 'images/spinosaurus.jpg', funFact: 'El Espinosaurio es el carnívoro más grande que se conoce, ¡más grande que el T-Rex!' },
+  { name: 'Estegosaurio', info: 'El Estegosaurio tenía placas grandes en su espalda y pinchos en la cola. Comía plantas.', image: 'images/stegosaurus.jpg', funFact: 'El cerebro del Estegosaurio era del tamaño de una nuez.' },
+  { name: 'Pterodáctilo', info: 'El Pterodáctilo podía volar y tenía un pico largo sin dientes. Cazaba peces y otros animales pequeños.', image: 'images/pterodactyl.jpg', funFact: 'Los Pterodáctilos no eran dinosaurios, ¡eran reptiles voladores!' },
+  { name: 'Braquiosaurio', info: 'El Braquiosaurio tenía un cuello muy largo para alcanzar las hojas de los árboles altos. Era enorme y pesado.', image: 'images/brachiosaurus.jpg', funFact: 'El Braquiosaurio podía pesar tanto como 17 elefantes juntos.' },
+  { name: 'Anquilosaurio', info: 'El Anquilosaurio estaba cubierto de armadura y tenía un gran mazo en la cola. Era como un tanque viviente.', image: 'images/ankylosaurus.jpg', funFact: 'La armadura del Anquilosaurio estaba hecha de placas óseas llamadas osteodermos.' },
+  { name: 'Parasaurolofus', info: 'El Parasaurolofus tenía una cresta larga y curva en la cabeza. Hacía sonidos fuertes para comunicarse.', image: 'images/parasaurolophus.jpg', funFact: 'La cresta del Parasaurolofus podía producir sonidos como una trompeta.' },
+  { name: 'Diplodocus', info: 'El Diplodocus era uno de los dinosaurios más largos. Tenía un cuello y cola muy largos.', image: 'images/diplodocus.jpg', funFact: 'El Diplodocus podía medir hasta 27 metros de largo, ¡como dos autobuses!' },
+  { name: 'Allosaurio', info: 'El Allosaurio era un gran depredador con garras afiladas. Cazaba en manadas para atrapar presas grandes.', image: 'images/allosaurus.jpg', funFact: 'El Allosaurio tenía brazos más largos y fuertes que el T-Rex.' },
+  { name: 'Carnotauro', info: 'El Carnotauro tenía cuernos sobre los ojos y brazos muy pequeños. Era un corredor veloz.', image: 'images/carnotaurus.jpg', funFact: 'El Carnotauro tenía la cola más musculosa de todos los dinosaurios carnívoros.' },
+  { name: 'Iguanodonte', info: 'El Iguanodonte podía caminar en dos o cuatro patas. Tenía un pulgar con forma de espina.', image: 'images/iguanodon.jpg', funFact: 'El Iguanodonte fue uno de los primeros dinosaurios en ser descubiertos.' },
+  { name: 'Protoceratops', info: 'El Protoceratops era pequeño con un pico como de loro. Tenía un pequeño collar en el cuello.', image: 'images/protoceratops.jpg', funFact: 'Se cree que el mito del grifo se originó por fósiles de Protoceratops.' },
+  { name: 'Gallimimus', info: 'El Gallimimus era rápido y parecido a un avestruz. Corría en manadas para escapar de los depredadores.', image: 'images/gallimimus.jpg', funFact: 'El nombre Gallimimus significa "imitador de gallo".' },
+  { name: 'Pachycephalosaurus', info: 'El Pachycephalosaurus tenía un cráneo muy grueso y duro. Posiblemente lo usaba para pelear con otros dinosaurios.', image: 'images/pachycephalosaurus.jpg', funFact: 'Su cráneo podía llegar a medir 25 cm de grosor.' },
+  { name: 'Deinonychus', info: 'El Deinonychus era un veloz cazador con una garra grande en cada pie. Inspiró a los Velociraptores de las películas.', image: 'images/deinonychus.jpg', funFact: 'Su nombre significa "garra terrible".' },
+  { name: 'Compsognathus', info: 'El Compsognathus era uno de los dinosaurios más pequeños. Era del tamaño de un pollo y muy rápido.', image: 'images/compsognathus.jpg', funFact: 'Se cree que cazaba lagartos e insectos.' },
+  { name: 'Baryonyx', info: 'El Baryonyx tenía un hocico largo y garras enormes. Le gustaba comer peces y otros animales acuáticos.', image: 'images/baryonyx.jpg', funFact: 'Sus dientes eran como los de un cocodrilo.' },
+  { name: 'Maiasaura', info: 'La Maiasaura cuidaba muy bien de sus crías. Vivía en grandes manadas y comía plantas.', image: 'images/maiasaura.jpg', funFact: 'Su nombre significa "lagarto buena madre".' },
+  { name: 'Archaeopteryx', info: 'El Archaeopteryx era como un eslabón entre dinosaurios y aves. Tenía plumas y podía planear.', image: 'images/archaeopteryx.jpg', funFact: 'Es considerado una de las primeras aves prehistóricas.' },
+  { name: 'Therizinosaurus', info: 'El Therizinosaurus tenía garras enormes en sus manos, un cuello largo y comía plantas.', image: 'images/therizinosaurus.jpg', funFact: 'Sus garras podían medir hasta un metro de largo.' },
+  { name: 'Oviraptor', info: 'El Oviraptor tenía un pico sin dientes y una cresta en la cabeza. No robaba huevos como se creía.', image: 'images/oviraptor.jpg', funFact: 'Su nombre significa "ladrón de huevos", pero era un error.' },
+  { name: 'Argentinosaurus', info: 'El Argentinosaurus era uno de los dinosaurios más grandes y pesados. Comía grandes cantidades de plantas.', image: 'images/argentinosaurus.jpg', funFact: 'Podía pesar tanto como 12 elefantes africanos juntos.' },
+  { name: 'Giganotosaurus', info: 'El Giganotosaurus era un enorme depredador, rival del T-Rex en tamaño. Vivió en Sudamérica.', image: 'images/giganotosaurus.jpg', funFact: 'Su nombre significa "lagarto gigante del sur".' },
+  { name: 'Quetzalcoatlus', info: 'El Quetzalcoatlus era un pterosaurio gigante, uno de los animales voladores más grandes de todos los tiempos.', image: 'images/quetzalcoatlus.jpg', funFact: 'Podía tener una envergadura de alas de hasta 10-11 metros.' },
+  { name: 'Dilophosaurus', info: 'El Dilophosaurus tenía dos crestas en su cabeza. Era un veloz depredador del período Jurásico temprano.', image: 'images/dilophosaurus.jpg', funFact: 'En realidad, no escupía veneno como se muestra en las películas.' },
+  { name: 'Yutyrannus', info: 'El Yutyrannus era un tiranosauroide cubierto de plumas. Vivió mucho antes que el T-Rex.', image: 'images/yutyrannus.jpg', funFact: 'Su nombre significa "tirano emplumado".' },
+  { name: 'Deinocheirus', info: 'El Deinocheirus tenía brazos enormes y una joroba en la espalda. Comía de todo, desde plantas hasta peces.', image: 'images/deinocheirus.jpg', funFact: 'Sus brazos medían 2.4 metros de largo.' },
+  { name: 'Mosasaurus', info: 'El Mosasaurus era un enorme reptil marino, depredador de los océanos del Cretácico.', image: 'images/mosasaurus.jpg', funFact: 'Podía crecer hasta 18 metros de largo.' }
+];
+
+ function getRandomDino() {
+    return dinosaurs[Math.floor(Math.random() * dinosaurs.length)];
+  }
+
+  function showWakingUp() {
+    document.getElementById('waking-up').style.display = 'block';
+    setTimeout(() => {
+      document.getElementById('waking-up').style.display = 'none';
+      showWarning();
+    }, 3000);
+  }
+
+  function showWarning() {
+    document.getElementById('warning').style.display = 'block';
+    setTimeout(() => {
+      document.getElementById('warning').style.display = 'none';
+      showDino();
+    }, 5000);
+  }
+
+  function showDino() {
+    currentDino = getRandomDino();
+    document.getElementById('dino-name').textContent = currentDino.name;
+    document.getElementById('dino-info').textContent = currentDino.info;
+    document.getElementById('dino-fun-fact').textContent = currentDino.funFact;
+    document.getElementById('dinosaur').style.display = 'block';
+    document.getElementById('controls').style.display = 'block';
+    document.getElementById('dino-image').src = currentDino.image;
+    document.getElementById('dino-image').alt = currentDino.name;
+  }
+
+  function populateVoiceList() {
+    voices = synth.getVoices().filter(voice => voice.lang.startsWith('es'));
+    const select = document.getElementById('voice-select');
+    select.innerHTML = '';
+    for(let i = 0; i < voices.length ; i++) {
+      const option = document.createElement('option');
+      option.textContent = '${voices[i].name} (${voices[i].lang'
+      option.setAttribute('data-lang', voices[i].lang);
+      option.setAttribute('data-name', voices[i].name);
+      select.appendChild(option);
+    }
+  }
+
+  populateVoiceList();
+  if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = populateVoiceList;
+  }
+
+  function speakDinoInfo() {
+    if (synth.speaking) {
+      console.error('speechSynthesis.speaking');
+      return;
+    }
+    if (currentDino && currentDino.info) {
+      const utterThis = new SpeechSynthesisUtterance(currentDino.info + ' ' + currentDino.funFact);
+      utterThis.onend = function (event) {
+        console.log('SpeechSynthesisUtterance.onend');
+        showRunMessage();
+      }
+      utterThis.onerror = function (event) {
+        console.error('SpeechSynthesisUtterance.onerror');
+      }
+      const selectedOption = document.getElementById('voice-select').selectedOptions[0];
+      if (selectedOption) {
+        const selectedVoiceName = selectedOption.getAttribute('data-name');
+        utterThis.voice = voices.find(voice => voice.name === selectedVoiceName);
+      }
+      utterThis.pitch = parseFloat(document.getElementById('pitch-slider').value);
+      utterThis.rate = parseFloat(document.getElementById('rate-slider').value);
+      synth.speak(utterThis);
+    }
+  }
+
+  function showRunMessage() {
+    document.getElementById('run-message').style.display = 'block';
+    setTimeout(() => {
+      document.getElementById('run-message').style.display = 'none';
+      showFinalMessage();
+    }, 3000);
+  }
+
+  function showFinalMessage() {
+    document.getElementById('dinosaur').style.display = 'none';
+    document.getElementById('controls').style.display = 'none';
+    document.getElementById('final-message').style.display = 'block';
+  }
+
+  function restartGame() {
+    document.getElementById('final-message').style.display = 'none';
+    showWakingUp();
+  }
+
+  document.getElementById('speak-btn').addEventListener('click', speakDinoInfo);
+  document.getElementById('stop-btn').addEventListener('click', () => {
+    synth.cancel();
+  });
+  document.getElementById('restart-btn').addEventListener('click', restartGame);
+
+  document.getElementById('rate-slider').addEventListener('input', function() {
+    document.getElementById('rate-value').textContent = this.value;
+  });
+
+  document.getElementById('pitch-slider').addEventListener('input', function() {
+    document.getElementById('pitch-value').textContent = this.value;
+  });
+
+  showWakingUp(); // Inicia el juego
+});
+</script>
+</body>
+</html>
